@@ -1,0 +1,115 @@
+/* 기본 폰트 및 레이아웃 스타일 */
+body {
+    font-family: 'Inter', sans-serif, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+}
+/* 활성화된 탭 스타일 */
+.tab-active {
+    border-bottom: 2px solid #1a73e8;
+    color: #1a73e8;
+    font-weight: 600;
+}
+/* 비활성화된 탭 스타일 */
+.tab-inactive {
+    border-bottom: 2px solid transparent;
+    color: #5f6368;
+}
+/* 버튼 공통 스타일 */
+.btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+.btn-primary {
+    background-color: #1a73e8;
+    color: white;
+}
+.btn-primary:hover {
+    background-color: #185abc;
+}
+.btn-secondary {
+    background-color: #e9ecef;
+    color: #343a40;
+}
+.btn-secondary:hover {
+    background-color: #dee2e6;
+}
+.btn-danger {
+    background-color: #dc3545;
+    color: white;
+}
+.btn-danger:hover {
+    background-color: #c82333;
+}
+/* 퀵 필터 버튼 스타일 */
+.quick-filter-btn {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid #dee2e6;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    color: #495057;
+    background-color: white;
+    transition: all 0.2s;
+}
+.quick-filter-btn.active, .quick-filter-btn:hover {
+    background-color: #e8f0fe;
+    color: #1967d2;
+    border-color: #1967d2;
+}
+/* 파일 드래그앤드롭 영역 스타일 */
+#drop-zone {
+    border: 2px dashed #ced4da;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    color: #6c757d;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+#drop-zone.dragover {
+    border-color: #1a73e8;
+    background-color: #e8f0fe;
+}
+/* 커스텀 확인창 스타일 */
+.confirm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.confirm-modal {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 400px;
+}
+.sidebar-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    color: #334155;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+.sidebar-menu-item:hover, .sidebar-menu-item.active {
+    background-color: #eef2ff;
+    color: #4f46e5;
+}
+.sidebar-menu-item svg {
+    margin-right: 0.75rem;
+    width: 1.25rem;
+    height: 1.25rem;
+}
+/* 상세 페이지 내용 영역 최소 높이 설정 */
+#detail-content-wrapper {
+    min-height: 24rem; /* 384px */
+}

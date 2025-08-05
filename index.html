@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공지사항 게시판 - 전체 페이지</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- 1. Toast UI Editor CDN 추가 -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100">
+
+    <div class="flex h-screen bg-gray-100">
+        <!-- 사이드바 -->
+        <aside class="w-64 bg-white shadow-lg hidden md:flex flex-col">
+            <div class="h-16 flex items-center justify-center border-b">
+                <h1 class="text-2xl font-bold text-indigo-600">Admin</h1>
+            </div>
+            <nav class="flex-1 px-4 py-4 space-y-2">
+                <a href="#" class="sidebar-menu-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                    <span>대시보드</span>
+                </a>
+                <a href="#" class="sidebar-menu-item active">
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span>공지사항</span>
+                </a>
+                <a href="#" class="sidebar-menu-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    <span>회원관리</span>
+                </a>
+                 <a href="#" class="sidebar-menu-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <span>설정</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- 메인 콘텐츠 영역 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 상단 헤더 -->
+            <header class="bg-white shadow-sm flex justify-between items-center p-4">
+                <div>
+                    <button class="md:hidden text-gray-500 focus:outline-none">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6H20M4 12H20M4 18H11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    <div class="relative">
+                        <img class="h-8 w-8 rounded-full object-cover" src="https://placehold.co/100x100/E2E8F0/4A5568?text=User" alt="프로필 이미지">
+                    </div>
+                </div>
+            </header>
+
+            <!-- 메인 콘텐츠 (게시판) -->
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 md:p-8">
+                <div id="app-container" class="w-full mx-auto bg-white rounded-lg shadow-md p-6">
+                    <!-- 게시판 헤더 -->
+                    <header class="pb-4 border-b">
+                        <div class="flex justify-between items-baseline mb-4">
+                            <div class="flex items-baseline space-x-4">
+                                <h1 class="text-2xl font-bold text-gray-800">공지사항</h1>
+                                <p class="text-sm text-gray-500">Home > 공지사항</p>
+                            </div>
+                        </div>
+                        <div class="flex space-x-8">
+                            <button id="tab-list" class="pb-2 tab-active" onclick="showView('list')">목록관리</button>
+                            <button id="tab-manage" class="pb-2 tab-inactive hidden" onclick="showView('editor')">관리하기</button>
+                            <button class="pb-2 tab-inactive">메뉴얼</button>
+                        </div>
+                    </header>
+
+                    <!-- 게시판 메인 콘텐츠 -->
+                    <main class="mt-6">
+                        <!-- 게시판 목록 뷰 -->
+                        <div id="list-view">
+                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 p-4 bg-gray-50 rounded-lg">
+                                <div class="flex flex-wrap gap-2 mb-4 md:mb-0" id="quick-filter-buttons"></div>
+                                <button class="btn btn-primary" onclick="handleNewPost()">작성하기</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full bg-white table-fixed">
+                                    <thead class="bg-gray-100">
+                                        <tr>
+                                            <th class="w-16 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">번호</th>
+                                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">제목</th>
+                                            <th class="w-40 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">분류</th>
+                                            <th class="w-20 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">중요</th>
+                                            <th class="w-56 text-left py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">첨부파일</th>
+                                            <th class="w-48 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">등록일</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="notice-table-body" class="text-gray-700"></tbody>
+                                </table>
+                            </div>
+                            <div id="pagination" class="flex justify-center items-center mt-6 space-x-2"></div>
+                        </div>
+
+                        <!-- 게시판 상세 뷰 -->
+                        <div id="detail-view" class="hidden">
+                            <div class="flex justify-between items-center mb-4 pb-4 border-b">
+                                <h2 class="text-xl font-bold text-gray-800">공지사항 상세</h2>
+                                <div class="flex items-center gap-4">
+                                    <div id="detail-attachment-container"></div>
+                                    <button class="btn btn-secondary" onclick="showView('list')">목록으로</button>
+                                </div>
+                            </div>
+                            <div id="detail-content-wrapper" class="p-6 border rounded-lg">
+                                <div class="flex items-center gap-4 mb-2">
+                                    <span id="detail-category" class="text-blue-600 bg-blue-100 px-3 py-1 rounded-full text-sm font-semibold"></span>
+                                    <span id="detail-date" class="text-gray-500 text-sm"></span>
+                                </div>
+                                <h3 id="detail-title" class="text-2xl font-bold text-gray-900 mb-4"></h3>
+                                <hr class="mb-6">
+                                <div id="detail-body" class="prose max-w-none"></div>
+                            </div>
+                            <div class="flex justify-between items-center mt-6">
+                                <div>
+                                    <button id="delete-btn" class="btn btn-danger mr-2">삭제</button>
+                                    <button id="edit-btn" class="btn btn-secondary">수정</button>
+                                </div>
+                                <div>
+                                    <button id="prev-btn" class="btn btn-secondary mr-2">이전 글</button>
+                                    <button id="next-btn" class="btn btn-secondary">다음 글</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 게시판 작성/수정 뷰 -->
+                        <div id="editor-view" class="hidden">
+                            <h2 class="text-xl font-bold text-gray-800 mb-6">공지사항 관리</h2>
+                            <form id="editor-form">
+                                <input type="hidden" id="post-id">
+                                <div class="mb-6">
+                                    <label for="title" class="block text-gray-700 text-sm font-bold mb-2">제목 <span class="text-red-500">*</span></label>
+                                    <input type="text" id="title" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                                </div>
+                                <div class="mb-6">
+                                    <label for="category" class="block text-gray-700 text-sm font-bold mb-2">부가 정보 <span class="text-red-500">*</span></label>
+                                    <div class="flex items-center gap-4">
+                                        <select id="category" class="shadow border rounded py-2 px-3 text-gray-700" required>
+                                            <option value="요율">요율</option>
+                                            <option value="통관">통관</option>
+                                            <option value="물류센터">물류센터</option>
+                                            <option value="시스템(업데이트)">시스템(업데이트)</option>
+                                            <option value="뉴스">뉴스</option>
+                                        </select>
+                                        <div class="flex items-center gap-4">
+                                           <label class="flex items-center"><input type="checkbox" id="is-fixed" class="mr-2"> 고정</label>
+                                           <label class="flex items-center"><input type="checkbox" id="is-important" class="mr-2"> 중요</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-6">
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">첨부파일</label>
+                                    <div id="drop-zone">
+                                        <p>여기에 파일을 드래그하거나 <label for="file-input" class="text-blue-600 font-semibold cursor-pointer hover:underline">파일을 선택하세요</label>.</p>
+                                        <input type="file" id="file-input" class="hidden" multiple>
+                                    </div>
+                                    <div id="file-list" class="mt-2 text-sm text-gray-600"></div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">작성내용 <span class="text-red-500">*</span></label>
+                                    <!-- 2. Toast UI Editor가 생성될 영역 -->
+                                    <div id="editor"></div>
+                                </div>
+                                <div class="flex justify-end gap-4">
+                                    <button type="button" class="btn btn-secondary" onclick="showView('list')">취소</button>
+                                    <button type="button" class="btn btn-primary" onclick="savePost()">저장하기</button>
+                                </div>
+                            </form>
+                        </div>
+                    </main>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 삭제 확인 모달 -->
+    <div id="delete-confirm-modal" class="confirm-modal-overlay hidden">
+        <div class="confirm-modal">
+            <h3 class="text-lg font-bold mb-4">게시글 삭제</h3>
+            <p class="mb-6">게시글을 정말 삭제하시겠습니까?</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete" class="btn btn-secondary">취소</button>
+                <button id="confirm-delete" class="btn btn-danger">삭제</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
