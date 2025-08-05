@@ -10,6 +10,8 @@ const postsPerPage = 10;
 let currentFilter = '전체';
 let currentPostId = null;
 let editor = null; // Toast UI Editor 인스턴스를 저장할 변수
+let uploadedFiles = []; // 업로드된 파일 목록
+let isUploading = false; // 업로드 중복 방지 플래그
 
 // --- DOM 요소 ---
 const views = {
@@ -98,20 +100,24 @@ async function renderListView() {
             const postNumber = count - startIndex - index;
             // 내용에서 HTML 태그 제거하여 미리보기 생성
             const preview = post.content ? post.content.replace(/<[^>]*>?/gm, '').substring(0, 50) + '...' : '';
+            
+            // 첨부파일 개수 표시
+            const attachmentCount = post.attachments ? post.attachments.length : 0;
+            const attachmentText = attachmentCount > 0 ? `${attachmentCount}개` : '';
+            
             return `
                 <tr class="border-b hover:bg-gray-50">
                     <td class="text-center py-3 px-4">${post.is_fixed ? '<span class="text-red-500 font-bold">공지</span>' : postNumber}</td>
                     <td class="py-3 px-4 truncate"><a href="#" class="hover:underline" onclick="event.preventDefault(); showView('detail', ${post.id})">${post.title}</a></td>
                     <td class="text-center py-3 px-4">${post.category}</td>
                     <td class="text-center py-3 px-4">${post.is_important ? '✔️' : ''}</td>
-                    <td class="py-3 px-4 text-sm truncate">${preview}</td>
+                    <td class="text-center py-3 px-4">${attachmentText}</td>
                     <td class="text-center py-3 px-4 text-sm">${formatDate(post.created_at)}</td>
                 </tr>`;
         }).join('');
     }
     renderPagination(Math.ceil(count / postsPerPage));
 }
-
 
 /** 페이지네이션 렌더링 */
 function renderPagination(totalPages) {
@@ -164,10 +170,60 @@ async function renderDetailView(postId) {
     // Toast UI Editor는 HTML을 그대로 저장하므로, innerHTML로 렌더링
     document.getElementById('detail-body').innerHTML = post.content;
 
+    // 첨부파일 렌더링
+    renderAttachments(post.attachments || []);
+
     document.getElementById('edit-btn').onclick = () => showView('editor', postId);
     document.getElementById('delete-btn').onclick = () => handleDeletePost(postId);
     document.getElementById('prev-btn').style.display = 'none';
     document.getElementById('next-btn').style.display = 'none';
+}
+
+/** 첨부파일 렌더링 */
+function renderAttachments(attachments) {
+    const container = document.getElementById('detail-attachment-container');
+    if (!attachments || attachments.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const attachmentList = attachments.map(file => `
+        <div class="flex items-center gap-2 p-2 bg-gray-50 rounded border">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+            </svg>
+            <span class="text-sm text-gray-700">${file.name}</span>
+            <button onclick="downloadFile('${file.url}', '${file.name}')" class="text-blue-600 hover:text-blue-800 text-sm">
+                다운로드
+            </button>
+        </div>
+    `).join('');
+
+    container.innerHTML = `
+        <div class="text-sm text-gray-600 mb-2">첨부파일 (${attachments.length}개)</div>
+        <div class="space-y-1">
+            ${attachmentList}
+        </div>
+    `;
+}
+
+/** 파일 다운로드 함수 */
+async function downloadFile(url, filename) {
+    try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        console.error('Download error:', error);
+        alert('파일 다운로드에 실패했습니다.');
+    }
 }
 
 /** 작성/수정 뷰 렌더링 (Toast UI Editor) */
@@ -175,6 +231,7 @@ async function renderEditorView(postId = null) {
     const form = document.getElementById('editor-form');
     form.reset();
     document.getElementById('post-id').value = '';
+    uploadedFiles = []; // 파일 목록 초기화
     
     let initialContent = "";
     if (postId) {
@@ -186,8 +243,13 @@ async function renderEditorView(postId = null) {
             document.getElementById('is-fixed').checked = post.is_fixed;
             document.getElementById('is-important').checked = post.is_important;
             initialContent = post.content;
+            uploadedFiles = post.attachments || [];
+            renderFileList();
         }
     }
+
+    // 파일 업로드 이벤트 리스너 설정
+    setupFileUpload();
 
     // Toast UI Editor 생성
     editor = new toastui.Editor({
@@ -197,15 +259,131 @@ async function renderEditorView(postId = null) {
         previewStyle: 'vertical',
         initialValue: initialContent,
         hooks: {
-            // 이미지 업로드 훅
+            // 이미지 업로드 훅 (중복 방지)
             addImageBlobHook: async (blob, callback) => {
-                const publicUrl = await handleImageUpload(blob);
-                if (publicUrl) {
-                    callback(publicUrl, 'alt text');
+                if (isUploading) return; // 업로드 중이면 무시
+                isUploading = true;
+                
+                try {
+                    const publicUrl = await handleImageUpload(blob);
+                    if (publicUrl) {
+                        callback(publicUrl, 'alt text');
+                    }
+                } finally {
+                    isUploading = false;
                 }
             }
         }
     });
+}
+
+/** 파일 업로드 설정 */
+function setupFileUpload() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    // 드래그 앤 드롭 이벤트
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-blue-500', 'bg-blue-50');
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        const files = Array.from(e.dataTransfer.files);
+        handleFileUpload(files);
+    });
+
+    // 파일 선택 이벤트
+    fileInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        handleFileUpload(files);
+    });
+}
+
+/** 파일 업로드 처리 */
+async function handleFileUpload(files) {
+    for (const file of files) {
+        try {
+            const fileUrl = await uploadFile(file);
+            if (fileUrl) {
+                uploadedFiles.push({
+                    name: file.name,
+                    url: fileUrl,
+                    size: file.size,
+                    type: file.type
+                });
+                renderFileList();
+            }
+        } catch (error) {
+            console.error('File upload error:', error);
+            alert(`${file.name} 업로드에 실패했습니다.`);
+        }
+    }
+}
+
+/** 파일 업로드 (Supabase 스토리지) */
+async function uploadFile(file) {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `attachments/${fileName}`;
+
+    const { error } = await supabaseClient.storage.from('images').upload(filePath, file);
+
+    if (error) {
+        console.error('Error uploading file:', error);
+        throw new Error('파일 업로드에 실패했습니다.');
+    }
+
+    const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
+    return publicUrl;
+}
+
+/** 파일 목록 렌더링 */
+function renderFileList() {
+    const fileList = document.getElementById('file-list');
+    if (uploadedFiles.length === 0) {
+        fileList.innerHTML = '<p class="text-gray-500">첨부된 파일이 없습니다.</p>';
+        return;
+    }
+
+    const fileItems = uploadedFiles.map((file, index) => `
+        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border mb-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                </svg>
+                <span class="text-sm text-gray-700">${file.name}</span>
+                <span class="text-xs text-gray-500">(${formatFileSize(file.size)})</span>
+            </div>
+            <button onclick="removeFile(${index})" class="text-red-600 hover:text-red-800 text-sm">
+                삭제
+            </button>
+        </div>
+    `).join('');
+
+    fileList.innerHTML = fileItems;
+}
+
+/** 파일 크기 포맷팅 */
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/** 파일 제거 */
+function removeFile(index) {
+    uploadedFiles.splice(index, 1);
+    renderFileList();
 }
 
 /** 새 글 작성 핸들러 */
@@ -241,6 +419,7 @@ async function handleSavePost(content) {
         is_fixed: document.getElementById('is-fixed').checked,
         is_important: document.getElementById('is-important').checked,
         content: content, // 에디터 내용을 content 필드에 저장
+        attachments: uploadedFiles // 첨부파일 정보 추가
     };
 
     const { error } = id 
@@ -275,8 +454,8 @@ async function handleImageUpload(file) {
     if (!file) return null;
 
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `public/${fileName}`;
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `images/${fileName}`;
 
     const { error } = await supabaseClient.storage.from('images').upload(filePath, file);
 
@@ -289,7 +468,6 @@ async function handleImageUpload(file) {
     const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
     return publicUrl;
 }
-
 
 // --- 페이지 로드 시 초기화 ---
 window.onload = function() {
