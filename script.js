@@ -19,10 +19,7 @@ const views = {
     detail: document.getElementById('detail-view'),
     editor: document.getElementById('editor-view'),
 };
-const tabs = {
-    list: document.getElementById('tab-list'),
-    manage: document.getElementById('tab-manage'),
-};
+const breadcrumb = document.getElementById('breadcrumb');
 
 // --- 함수 ---
 
@@ -42,7 +39,6 @@ async function showView(viewName, postId = null) {
     currentView = viewName;
     currentPostId = postId;
 
-    // 에디터 인스턴스가 존재하면 메모리 해제를 위해 제거
     if (editor) {
         editor.destroy();
         editor = null;
@@ -50,24 +46,23 @@ async function showView(viewName, postId = null) {
 
     Object.values(views).forEach(view => view.classList.add('hidden'));
     views[viewName].classList.remove('hidden');
+    
+    // Breadcrumb 업데이트
+    if(viewName === 'list') {
+        breadcrumb.textContent = 'Home > 공지사항';
+    } else if (viewName === 'detail') {
+        breadcrumb.textContent = 'Home > 공지사항 > 상세';
+    } else if (viewName === 'editor') {
+        breadcrumb.textContent = `Home > 공지사항 > ${postId ? '수정' : '작성'}`;
+    }
 
-    tabs.list.classList.remove('tab-active', 'tab-inactive');
-    tabs.manage.classList.remove('tab-active', 'tab-inactive');
 
     if (viewName === 'editor') {
-        tabs.list.classList.add('tab-inactive');
-        tabs.manage.classList.add('tab-active');
-        tabs.manage.classList.remove('hidden');
         await renderEditorView(postId);
-    } else {
-        tabs.list.classList.add('tab-active');
-        tabs.manage.classList.add('tab-inactive');
-        tabs.manage.classList.add('hidden');
-        if (viewName === 'list') {
-            await renderListView();
-        } else if (viewName === 'detail' && postId) {
-            await renderDetailView(postId);
-        }
+    } else if (viewName === 'list') {
+        await renderListView();
+    } else if (viewName === 'detail' && postId) {
+        await renderDetailView(postId);
     }
 }
 
@@ -98,20 +93,25 @@ async function renderListView() {
     } else {
         tableBody.innerHTML = posts.map((post, index) => {
             const postNumber = count - startIndex - index;
-            // 내용에서 HTML 태그 제거하여 미리보기 생성
-            const preview = post.content ? post.content.replace(/<[^>]*>?/gm, '').substring(0, 50) + '...' : '';
             
-            // 첨부파일 개수 표시
             const attachmentCount = post.attachments ? post.attachments.length : 0;
-            const attachmentText = attachmentCount > 0 ? `${attachmentCount}개` : '';
-            
+            let attachmentText = '';
+            if (attachmentCount > 0) {
+                const lastFile = post.attachments[attachmentCount - 1];
+                if (attachmentCount > 1) {
+                    attachmentText = `${lastFile.name} 외 ${attachmentCount - 1}개`;
+                } else {
+                    attachmentText = lastFile.name;
+                }
+            }
+
             return `
                 <tr class="border-b hover:bg-gray-50">
                     <td class="text-center py-3 px-4">${post.is_fixed ? '<span class="text-red-500 font-bold">공지</span>' : postNumber}</td>
                     <td class="py-3 px-4 truncate"><a href="#" class="hover:underline" onclick="event.preventDefault(); showView('detail', ${post.id})">${post.title}</a></td>
                     <td class="text-center py-3 px-4">${post.category}</td>
                     <td class="text-center py-3 px-4">${post.is_important ? '✔️' : ''}</td>
-                    <td class="text-center py-3 px-4">${attachmentText}</td>
+                    <td class="text-center py-3 px-4 text-sm truncate" title="${attachmentText}">${attachmentText}</td>
                     <td class="text-center py-3 px-4 text-sm">${formatDate(post.created_at)}</td>
                 </tr>`;
         }).join('');
@@ -167,16 +167,14 @@ async function renderDetailView(postId) {
     document.getElementById('detail-category').textContent = post.category;
     document.getElementById('detail-date').textContent = formatDate(post.created_at);
     document.getElementById('detail-title').textContent = post.title;
-    // Toast UI Editor는 HTML을 그대로 저장하므로, innerHTML로 렌더링
     document.getElementById('detail-body').innerHTML = post.content;
 
-    // 첨부파일 렌더링
     renderAttachments(post.attachments || []);
 
     document.getElementById('edit-btn').onclick = () => showView('editor', postId);
     document.getElementById('delete-btn').onclick = () => handleDeletePost(postId);
-    document.getElementById('prev-btn').style.display = 'none';
-    document.getElementById('next-btn').style.display = 'none';
+    
+    await updatePrevNextButtons(post.created_at, post.is_fixed);
 }
 
 /** 첨부파일 렌더링 */
@@ -184,24 +182,24 @@ function renderAttachments(attachments) {
     const container = document.getElementById('detail-attachment-container');
     if (!attachments || attachments.length === 0) {
         container.innerHTML = '';
+        container.classList.add('hidden');
         return;
     }
+    
+    container.classList.remove('hidden');
 
     const attachmentList = attachments.map(file => `
-        <div class="flex items-center gap-2 p-2 bg-gray-50 rounded border">
-            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button onclick="downloadFile('${file.url}', '${file.name}')" class="flex items-center gap-2 p-2 bg-gray-50 rounded border hover:bg-gray-100 w-full text-left">
+            <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
             </svg>
-            <span class="text-sm text-gray-700">${file.name}</span>
-            <button onclick="downloadFile('${file.url}', '${file.name}')" class="text-blue-600 hover:text-blue-800 text-sm">
-                다운로드
-            </button>
-        </div>
+            <span class="text-sm text-gray-700 truncate" title="${file.name}">${file.name}</span>
+        </button>
     `).join('');
 
     container.innerHTML = `
-        <div class="text-sm text-gray-600 mb-2">첨부파일 (${attachments.length}개)</div>
-        <div class="space-y-1">
+        <h4 class="text-sm font-semibold text-gray-700 mb-2">첨부파일 (${attachments.length}개)</h4>
+        <div class="space-y-2">
             ${attachmentList}
         </div>
     `;
@@ -211,6 +209,7 @@ function renderAttachments(attachments) {
 async function downloadFile(url, filename) {
     try {
         const response = await fetch(url);
+        if (!response.ok) throw new Error('Network response was not ok.');
         const blob = await response.blob();
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -226,13 +225,51 @@ async function downloadFile(url, filename) {
     }
 }
 
+/** 이전/다음글 버튼 업데이트 */
+async function updatePrevNextButtons(currentPostDate, isFixed) {
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    
+    // 이전 글 찾기
+    const { data: prevPost } = await supabaseClient.from('posts')
+        .select('id')
+        .lt('created_at', currentPostDate)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+    // 다음 글 찾기
+    const { data: nextPost } = await supabaseClient.from('posts')
+        .select('id')
+        .gt('created_at', currentPostDate)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .single();
+
+    if (prevPost) {
+        prevBtn.style.display = 'inline-block';
+        prevBtn.onclick = () => showView('detail', prevPost.id);
+    } else {
+        prevBtn.style.display = 'none';
+    }
+
+    if (nextPost) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.onclick = () => showView('detail', nextPost.id);
+    } else {
+        nextBtn.style.display = 'none';
+    }
+}
+
+
 /** 작성/수정 뷰 렌더링 (Toast UI Editor) */
 async function renderEditorView(postId = null) {
     const form = document.getElementById('editor-form');
     form.reset();
     document.getElementById('post-id').value = '';
-    uploadedFiles = []; // 파일 목록 초기화
-    
+    uploadedFiles = [];
+    renderFileList();
+
     let initialContent = "";
     if (postId) {
         const { data: post } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
@@ -248,10 +285,8 @@ async function renderEditorView(postId = null) {
         }
     }
 
-    // 파일 업로드 이벤트 리스너 설정
     setupFileUpload();
 
-    // Toast UI Editor 생성
     editor = new toastui.Editor({
         el: document.querySelector('#editor'),
         height: '400px',
@@ -259,18 +294,10 @@ async function renderEditorView(postId = null) {
         previewStyle: 'vertical',
         initialValue: initialContent,
         hooks: {
-            // 이미지 업로드 훅 (중복 방지)
             addImageBlobHook: async (blob, callback) => {
-                if (isUploading) return; // 업로드 중이면 무시
-                isUploading = true;
-                
-                try {
-                    const publicUrl = await handleImageUpload(blob);
-                    if (publicUrl) {
-                        callback(publicUrl, 'alt text');
-                    }
-                } finally {
-                    isUploading = false;
+                const publicUrl = await handleImageUpload(blob);
+                if (publicUrl) {
+                    callback(publicUrl, 'alt text');
                 }
             }
         }
@@ -282,35 +309,62 @@ function setupFileUpload() {
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
 
-    // 드래그 앤 드롭 이벤트
-    dropZone.addEventListener('dragover', (e) => {
+    const dragOverHandler = (e) => {
         e.preventDefault();
         dropZone.classList.add('border-blue-500', 'bg-blue-50');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
+    };
+    const dragLeaveHandler = (e) => {
         e.preventDefault();
         dropZone.classList.remove('border-blue-500', 'bg-blue-50');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
+    };
+    const dropHandler = (e) => {
         e.preventDefault();
         dropZone.classList.remove('border-blue-500', 'bg-blue-50');
         const files = Array.from(e.dataTransfer.files);
         handleFileUpload(files);
-    });
-
-    // 파일 선택 이벤트
-    fileInput.addEventListener('change', (e) => {
+    };
+    const changeHandler = (e) => {
         const files = Array.from(e.target.files);
         handleFileUpload(files);
-    });
+        e.target.value = ''; // 동일한 파일 다시 선택 가능하도록 초기화
+    };
+
+    dropZone.removeEventListener('dragover', dragOverHandler);
+    dropZone.removeEventListener('dragleave', dragLeaveHandler);
+    dropZone.removeEventListener('drop', dropHandler);
+    fileInput.removeEventListener('change', changeHandler);
+    
+    dropZone.addEventListener('dragover', dragOverHandler);
+    dropZone.addEventListener('dragleave', dragLeaveHandler);
+    dropZone.addEventListener('drop', dropHandler);
+    fileInput.addEventListener('change', changeHandler);
 }
 
-/** 파일 업로드 처리 */
+/** 파일 업로드 처리 (중복 방지) */
 async function handleFileUpload(files) {
-    for (const file of files) {
-        try {
+    if (isUploading) {
+        alert("파일 업로드 중입니다. 잠시 후 다시 시도해주세요.");
+        return;
+    }
+    isUploading = true;
+    
+    const newFiles = files.filter(file => 
+        !uploadedFiles.some(uploadedFile => 
+            uploadedFile.name === file.name && uploadedFile.size === file.size
+        )
+    );
+
+    if (newFiles.length !== files.length) {
+        alert("중복된 파일은 제외되었습니다.");
+    }
+    
+    if(newFiles.length === 0) {
+        isUploading = false;
+        return;
+    }
+
+    try {
+        for (const file of newFiles) {
             const fileUrl = await uploadFile(file);
             if (fileUrl) {
                 uploadedFiles.push({
@@ -319,12 +373,14 @@ async function handleFileUpload(files) {
                     size: file.size,
                     type: file.type
                 });
-                renderFileList();
             }
-        } catch (error) {
-            console.error('File upload error:', error);
-            alert(`${file.name} 업로드에 실패했습니다.`);
         }
+        renderFileList();
+    } catch (error) {
+        console.error('File upload error:', error);
+        alert(`파일 업로드 중 오류가 발생했습니다.`);
+    } finally {
+        isUploading = false;
     }
 }
 
@@ -337,8 +393,7 @@ async function uploadFile(file) {
     const { error } = await supabaseClient.storage.from('images').upload(filePath, file);
 
     if (error) {
-        console.error('Error uploading file:', error);
-        throw new Error('파일 업로드에 실패했습니다.');
+        throw new Error('파일 업로드에 실패했습니다: ' + error.message);
     }
 
     const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
@@ -349,20 +404,20 @@ async function uploadFile(file) {
 function renderFileList() {
     const fileList = document.getElementById('file-list');
     if (uploadedFiles.length === 0) {
-        fileList.innerHTML = '<p class="text-gray-500">첨부된 파일이 없습니다.</p>';
+        fileList.innerHTML = '';
         return;
     }
 
     const fileItems = uploadedFiles.map((file, index) => `
         <div class="flex items-center justify-between p-2 bg-gray-50 rounded border mb-2">
-            <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
                 </svg>
-                <span class="text-sm text-gray-700">${file.name}</span>
-                <span class="text-xs text-gray-500">(${formatFileSize(file.size)})</span>
+                <span class="text-sm text-gray-700 truncate">${file.name}</span>
+                <span class="text-xs text-gray-500 flex-shrink-0">(${formatFileSize(file.size)})</span>
             </div>
-            <button onclick="removeFile(${index})" class="text-red-600 hover:text-red-800 text-sm">
+            <button onclick="removeFile(${index})" class="text-red-600 hover:text-red-800 text-sm ml-2">
                 삭제
             </button>
         </div>
@@ -399,10 +454,9 @@ async function savePost() {
     }
 
     const title = document.getElementById('title').value.trim();
-    // Toast UI Editor는 getHTML() 메서드로 내용을 가져옵니다.
     const content = editor.getHTML();
 
-    if (!title || content.trim() === "") {
+    if (!title || content.trim() === "" || content.trim() === "<p><br></p>") {
         alert('제목과 내용은 필수입니다.');
         return;
     }
@@ -418,8 +472,8 @@ async function handleSavePost(content) {
         category: document.getElementById('category').value,
         is_fixed: document.getElementById('is-fixed').checked,
         is_important: document.getElementById('is-important').checked,
-        content: content, // 에디터 내용을 content 필드에 저장
-        attachments: uploadedFiles // 첨부파일 정보 추가
+        content: content,
+        attachments: uploadedFiles
     };
 
     const { error } = id 
@@ -436,8 +490,11 @@ async function handleSavePost(content) {
 }
 
 /** 게시글 삭제 핸들러 */
-async function handleDeletePost(postId) {
-    if (confirm('정말 이 게시글을 삭제하시겠습니까?')) {
+function handleDeletePost(postId) {
+    const modal = document.getElementById('delete-confirm-modal');
+    modal.classList.remove('hidden');
+    
+    document.getElementById('confirm-delete').onclick = async () => {
         const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
         if (error) {
             console.error('Error deleting post:', error);
@@ -446,27 +503,34 @@ async function handleDeletePost(postId) {
             alert('삭제되었습니다.');
             showView('list');
         }
-    }
+        modal.classList.add('hidden');
+    };
 }
 
 /** 이미지 업로드 기능 (Supabase 스토리지) */
 async function handleImageUpload(file) {
     if (!file) return null;
+    if (isUploading) return null;
+    isUploading = true;
 
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `images/${fileName}`;
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `images/${fileName}`;
 
-    const { error } = await supabaseClient.storage.from('images').upload(filePath, file);
+        const { error } = await supabaseClient.storage.from('images').upload(filePath, file);
 
-    if (error) {
-        console.error('Error uploading image:', error);
-        alert('이미지 업로드에 실패했습니다.');
-        return null;
+        if (error) {
+            console.error('Error uploading image:', error);
+            alert('이미지 업로드에 실패했습니다.');
+            return null;
+        }
+
+        const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
+        return publicUrl;
+    } finally {
+        isUploading = false;
     }
-
-    const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
-    return publicUrl;
 }
 
 // --- 페이지 로드 시 초기화 ---
@@ -474,6 +538,10 @@ window.onload = function() {
     renderQuickFilterButtons();
     showView('list');
     
-    // HTML onclick 속성을 사용하므로, 별도의 이벤트 리스너는 필요 없습니다.
     document.getElementById('editor-form').addEventListener('submit', (e) => e.preventDefault());
+
+    // 모달 이벤트 리스너
+    document.getElementById('cancel-delete').addEventListener('click', () => {
+        document.getElementById('delete-confirm-modal').classList.add('hidden');
+    });
 };

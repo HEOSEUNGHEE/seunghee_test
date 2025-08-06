@@ -1,75 +1,138 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
 /* 기본 폰트 및 레이아웃 스타일 */
-body {
-    font-family: 'Inter', sans-serif, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+body, html {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+    letter-spacing: -0.025em;
+    color: #334155;
+    background-color: #f1f5f9;
 }
-/* 활성화된 탭 스타일 */
-.tab-active {
-    border-bottom: 2px solid #1a73e8;
-    color: #1a73e8;
+
+/* 사이드바 */
+.sidebar-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    color: #475569;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+.sidebar-menu-item:hover, .sidebar-menu-item.active {
+    background-color: #eef2ff;
+    color: #4f46e5;
     font-weight: 600;
 }
-/* 비활성화된 탭 스타일 */
-.tab-inactive {
-    border-bottom: 2px solid transparent;
-    color: #5f6368;
+.sidebar-menu-item svg {
+    margin-right: 0.75rem;
+    width: 1.25rem;
+    height: 1.25rem;
 }
+
 /* 버튼 공통 스타일 */
 .btn {
     padding: 0.5rem 1rem;
     border-radius: 0.375rem;
-    font-weight: 500;
-    transition: background-color 0.2s;
+    font-weight: 600;
+    transition: all 0.2s;
     cursor: pointer;
+    border: 1px solid transparent;
 }
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .btn-primary {
-    background-color: #1a73e8;
+    background-color: #4f46e5;
     color: white;
 }
-.btn-primary:hover {
-    background-color: #185abc;
+.btn-primary:hover:not(:disabled) {
+    background-color: #4338ca;
 }
 .btn-secondary {
-    background-color: #e9ecef;
-    color: #343a40;
+    background-color: #e2e8f0;
+    color: #475569;
+    border-color: #cbd5e1;
 }
-.btn-secondary:hover {
-    background-color: #dee2e6;
+.btn-secondary:hover:not(:disabled) {
+    background-color: #cbd5e1;
 }
 .btn-danger {
-    background-color: #dc3545;
+    background-color: #dc2626;
     color: white;
 }
-.btn-danger:hover {
-    background-color: #c82333;
+.btn-danger:hover:not(:disabled) {
+    background-color: #b91c1c;
 }
+
 /* 퀵 필터 버튼 스타일 */
 .quick-filter-btn {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid #dee2e6;
+    padding: 0.375rem 1rem;
+    border: 1px solid #e2e8f0;
     border-radius: 9999px;
     font-size: 0.875rem;
-    color: #495057;
+    font-weight: 500;
+    color: #475569;
     background-color: white;
     transition: all 0.2s;
 }
 .quick-filter-btn.active, .quick-filter-btn:hover {
-    background-color: #e8f0fe;
-    color: #1967d2;
-    border-color: #1967d2;
+    background-color: #eef2ff;
+    color: #4f46e5;
+    border-color: #a5b4fc;
+    font-weight: 600;
 }
+
+/* 테이블 스타일 */
+#notice-table-body tr:hover {
+    background-color: #f8fafc;
+}
+#notice-table-body td a:hover {
+    color: #4f46e5;
+}
+
+table th {
+    font-size: 0.875rem; /* 14px */
+    font-weight: 600;
+    color: #475569;
+    padding: 0.75rem 1rem;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+table td {
+    font-size: 0.9rem; /* 14.4px */
+    padding: 0.8rem 1rem; /* 패딩 조정 */
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+td .text-sm {
+    font-size: 0.85rem; /* 13.6px */
+    color: #64748b;
+}
+
 /* 파일 드래그앤드롭 영역 스타일 */
-#drop-zone {
-    border: 2px dashed #ced4da;
-    border-radius: 0.5rem;
-    padding: 2rem;
-    text-align: center;
-    color: #6c757d;
-    transition: border-color 0.2s, background-color 0.2s;
-}
 #drop-zone.dragover {
-    border-color: #1a73e8;
-    background-color: #e8f0fe;
+    border-color: #4f46e5;
+    background-color: #eef2ff;
 }
+/* 상세 페이지 */
+#detail-content-wrapper {
+    min-height: 20rem; /* 320px */
+}
+
+/* Toast UI Editor 내부 이미지 리사이즈 */
+.toastui-editor-contents img {
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+}
+
+.toastui-editor-contents img.resizable-image {
+    resize: both;
+    overflow: auto;
+    border: 2px dashed #4f46e5;
+}
+
 /* 커스텀 확인창 스타일 */
 .confirm-modal-overlay {
     position: fixed;
@@ -90,26 +153,4 @@ body {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     width: 90%;
     max-width: 400px;
-}
-.sidebar-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1.5rem;
-    color: #334155;
-    font-weight: 500;
-    border-radius: 0.5rem;
-    transition: background-color 0.2s, color 0.2s;
-}
-.sidebar-menu-item:hover, .sidebar-menu-item.active {
-    background-color: #eef2ff;
-    color: #4f46e5;
-}
-.sidebar-menu-item svg {
-    margin-right: 0.75rem;
-    width: 1.25rem;
-    height: 1.25rem;
-}
-/* 상세 페이지 내용 영역 최소 높이 설정 */
-#detail-content-wrapper {
-    min-height: 24rem; /* 384px */
 }

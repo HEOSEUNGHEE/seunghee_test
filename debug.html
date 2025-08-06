@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>디버깅 페이지</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
+        <h1 class="text-2xl font-bold mb-6">Supabase 연결 테스트</h1>
+        
+        <div class="space-y-4">
+            <div>
+                <h2 class="text-lg font-bold mb-2">Supabase 상태</h2>
+                <div id="supabase-status" class="p-4 bg-gray-100 rounded">
+                    확인 중...
+                </div>
+            </div>
+            
+            <div>
+                <h2 class="text-lg font-bold mb-2">게시글 목록</h2>
+                <button onclick="testFetchPosts()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    게시글 가져오기 테스트
+                </button>
+                <div id="posts-result" class="mt-4 p-4 bg-gray-100 rounded">
+                    결과가 여기에 표시됩니다.
+                </div>
+            </div>
+            
+            <div>
+                <h2 class="text-lg font-bold mb-2">새 게시글 작성 테스트</h2>
+                <button onclick="testCreatePost()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    테스트 게시글 작성
+                </button>
+                <div id="create-result" class="mt-4 p-4 bg-gray-100 rounded">
+                    결과가 여기에 표시됩니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 설정
+        const supabaseUrl = 'https://avixgddflovoloctluvt.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2aXhnZGRmbG92b2xvY3RsdXZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQzODMxMDIsImV4cCI6MjA2OTk1OTEwMn0.E2Mk8fNuHxcnuMFCKqiXPI3BoZ5H5_DxoWFjaHHw_Zk';
+        
+        let supabaseClient;
+        
+        // 페이지 로드 시 초기화
+        window.onload = function() {
+            console.log('Page loaded');
+            console.log('Supabase object:', typeof supabase);
+            
+            if (typeof supabase !== 'undefined') {
+                supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+                console.log('Supabase client created');
+                
+                document.getElementById('supabase-status').innerHTML = 
+                    '<span class="text-green-600">✓ Supabase 연결 성공</span>';
+            } else {
+                document.getElementById('supabase-status').innerHTML = 
+                    '<span class="text-red-600">✗ Supabase 라이브러리 로드 실패</span>';
+            }
+        };
+        
+        // 게시글 가져오기 테스트
+        async function testFetchPosts() {
+            if (!supabaseClient) {
+                document.getElementById('posts-result').innerHTML = 
+                    '<span class="text-red-600">Supabase 클라이언트가 초기화되지 않았습니다.</span>';
+                return;
+            }
+            
+            try {
+                console.log('Fetching posts...');
+                const { data: posts, error, count } = await supabaseClient
+                    .from('posts')
+                    .select('*', { count: 'exact' })
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                
+                if (error) {
+                    console.error('Error fetching posts:', error);
+                    document.getElementById('posts-result').innerHTML = 
+                        `<span class="text-red-600">오류: ${error.message}</span>`;
+                } else {
+                    console.log('Posts fetched:', posts);
+                    console.log('Total count:', count);
+                    
+                    const postsHtml = posts.map(post => `
+                        <div class="border-b py-2">
+                            <strong>${post.title}</strong> - ${post.category}
+                            <br><small>${new Date(post.created_at).toLocaleString()}</small>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('posts-result').innerHTML = 
+                        `<span class="text-green-600">✓ ${count}개의 게시글 중 ${posts.length}개 로드됨</span>
+                         <div class="mt-2">${postsHtml}</div>`;
+                }
+            } catch (error) {
+                console.error('Exception:', error);
+                document.getElementById('posts-result').innerHTML = 
+                    `<span class="text-red-600">예외 발생: ${error.message}</span>`;
+            }
+        }
+        
+        // 새 게시글 작성 테스트
+        async function testCreatePost() {
+            if (!supabaseClient) {
+                document.getElementById('create-result').innerHTML = 
+                    '<span class="text-red-600">Supabase 클라이언트가 초기화되지 않았습니다.</span>';
+                return;
+            }
+            
+            try {
+                console.log('Creating test post...');
+                const testPost = {
+                    title: '테스트 게시글 ' + new Date().toLocaleString(),
+                    category: '뉴스',
+                    content: '<p>이것은 테스트 게시글입니다.</p>',
+                    is_fixed: false,
+                    is_important: false,
+                    attachments: []
+                };
+                
+                const { data, error } = await supabaseClient
+                    .from('posts')
+                    .insert(testPost)
+                    .select();
+                
+                if (error) {
+                    console.error('Error creating post:', error);
+                    document.getElementById('create-result').innerHTML = 
+                        `<span class="text-red-600">오류: ${error.message}</span>`;
+                } else {
+                    console.log('Post created:', data);
+                    document.getElementById('create-result').innerHTML = 
+                        `<span class="text-green-600">✓ 테스트 게시글 작성 성공</span>
+                         <div class="mt-2">ID: ${data[0].id}</div>`;
+                }
+            } catch (error) {
+                console.error('Exception:', error);
+                document.getElementById('create-result').innerHTML = 
+                    `<span class="text-red-600">예외 발생: ${error.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html> 

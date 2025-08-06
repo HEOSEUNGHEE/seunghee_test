@@ -61,16 +61,11 @@
                 <div id="app-container" class="w-full mx-auto bg-white rounded-lg shadow-md p-6">
                     <!-- 게시판 헤더 -->
                     <header class="pb-4 border-b">
-                        <div class="flex justify-between items-baseline mb-4">
+                        <div class="flex justify-between items-baseline">
                             <div class="flex items-baseline space-x-4">
                                 <h1 class="text-2xl font-bold text-gray-800">공지사항</h1>
-                                <p class="text-sm text-gray-500">Home > 공지사항</p>
+                                <p id="breadcrumb" class="text-sm text-gray-500">Home > 공지사항</p>
                             </div>
-                        </div>
-                        <div class="flex space-x-8">
-                            <button id="tab-list" class="pb-2 tab-active" onclick="showView('list')">목록관리</button>
-                            <button id="tab-manage" class="pb-2 tab-inactive hidden" onclick="showView('editor')">관리하기</button>
-                            <button class="pb-2 tab-inactive">메뉴얼</button>
                         </div>
                     </header>
 
@@ -87,10 +82,10 @@
                                     <thead class="bg-gray-100">
                                         <tr>
                                             <th class="w-16 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">번호</th>
-                                            <th class="text-left py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">제목</th>
+                                            <th class="text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">제목</th>
                                             <th class="w-40 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">분류</th>
                                             <th class="w-20 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">중요</th>
-                                            <th class="w-56 text-left py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">첨부파일</th>
+                                            <th class="w-56 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">첨부파일</th>
                                             <th class="w-48 text-center py-3 px-4 uppercase font-semibold text-sm whitespace-nowrap">등록일</th>
                                         </tr>
                                     </thead>
@@ -102,22 +97,22 @@
 
                         <!-- 게시판 상세 뷰 -->
                         <div id="detail-view" class="hidden">
-                            <div class="flex justify-between items-center mb-4 pb-4 border-b">
-                                <h2 class="text-xl font-bold text-gray-800">공지사항 상세</h2>
-                                <div class="flex items-center gap-4">
-                                    <div id="detail-attachment-container"></div>
-                                    <button class="btn btn-secondary" onclick="showView('list')">목록으로</button>
-                                </div>
+                            <div class="flex justify-end items-center mb-4">
+                                <button class="btn btn-secondary" onclick="showView('list')">목록으로</button>
                             </div>
-                            <div id="detail-content-wrapper" class="p-6 border rounded-lg">
+                            <div id="detail-content-wrapper" class="p-6 border rounded-lg bg-white">
                                 <div class="flex items-center gap-4 mb-2">
                                     <span id="detail-category" class="text-blue-600 bg-blue-100 px-3 py-1 rounded-full text-sm font-semibold"></span>
                                     <span id="detail-date" class="text-gray-500 text-sm"></span>
                                 </div>
                                 <h3 id="detail-title" class="text-2xl font-bold text-gray-900 mb-4"></h3>
-                                <hr class="mb-6">
                                 <div id="detail-body" class="prose max-w-none"></div>
                             </div>
+                            
+                            <div id="detail-attachment-container" class="mt-6 border-t pt-4">
+                                <!-- Attachment list will be rendered here by script.js -->
+                            </div>
+
                             <div class="flex justify-between items-center mt-6">
                                 <div>
                                     <button id="delete-btn" class="btn btn-danger mr-2">삭제</button>
@@ -132,8 +127,7 @@
 
                         <!-- 게시판 작성/수정 뷰 -->
                         <div id="editor-view" class="hidden">
-                            <h2 class="text-xl font-bold text-gray-800 mb-6">공지사항 관리</h2>
-                            <form id="editor-form">
+                             <form id="editor-form">
                                 <input type="hidden" id="post-id">
                                 <div class="mb-6">
                                     <label for="title" class="block text-gray-700 text-sm font-bold mb-2">제목 <span class="text-red-500">*</span></label>
@@ -172,7 +166,6 @@
                                 </div>
                                 <div class="mb-4">
                                     <label class="block text-gray-700 text-sm font-bold mb-2">작성내용 <span class="text-red-500">*</span></label>
-                                    <!-- 2. Toast UI Editor가 생성될 영역 -->
                                     <div id="editor"></div>
                                 </div>
                                 <div class="flex justify-end gap-4">
