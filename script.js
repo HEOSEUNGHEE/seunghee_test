@@ -11,6 +11,7 @@ let currentFilter = '전체';
 let currentPostId = null;
 let uploadedFiles = [];
 let isUploading = false;
+let editor = null; // CKEditor 인스턴스
 
 // --- DOM 요소 ---
 const views = {
@@ -153,12 +154,12 @@ async function renderDetailView(postId) {
     document.getElementById('detail-category').textContent = post.category;
     document.getElementById('detail-date').textContent = formatDate(post.created_at);
     document.getElementById('detail-title').textContent = post.title;
-    document.getElementById('detail-body').innerHTML = normalizeImageUrls(post.content);
+    document.getElementById('detail-body').innerHTML = post.content; // Toast UI는 HTML로 저장되므로 정규화 불필요
     document.getElementById('detail-important-tag').classList.toggle('hidden', !post.is_important);
     renderAttachments(post.attachments || []);
     document.getElementById('edit-btn').onclick = () => showView('editor', postId);
     document.getElementById('delete-btn').onclick = () => handleDeletePost(postId);
-    await updatePrevNextButtons(post.created_at);
+    await updatePrevNextButtons(post.created_at, post.id);
 }
 
 /** 첨부파일 렌더링 */
@@ -195,156 +196,307 @@ async function downloadFile(url, filename) {
 }
 
 /** 이전/다음글 버튼 업데이트 */
-async function updatePrevNextButtons(currentPostDate) {
+async function updatePrevNextButtons(currentPostDate, currentPostId) {
     const prevBtn = document.getElementById('prev-btn');
     const nextBtn = document.getElementById('next-btn');
-    const isoDate = new Date(currentPostDate).toISOString();
-    const { data: prevPost } = await supabaseClient.from('posts').select('id').lt('created_at', isoDate).order('created_at', { ascending: false }).limit(1).single();
-    const { data: nextPost } = await supabaseClient.from('posts').select('id').gt('created_at', isoDate).order('created_at', { ascending: true }).limit(1).single();
-    prevBtn.style.display = prevPost ? 'inline-block' : 'none';
-    if(prevPost) prevBtn.onclick = () => showView('detail', prevPost.id);
-    nextBtn.style.display = nextPost ? 'inline-block' : 'none';
-    if(nextPost) nextBtn.onclick = () => showView('detail', nextPost.id);
+    
+    // 이전 글 조회 (더 오래된 글) - ID가 더 작은 글
+    const { data: prevPost } = await supabaseClient.from('posts').select('id').lt('id', currentPostId).order('id', { ascending: false }).limit(1).maybeSingle();
+    
+    // 다음 글 조회 (더 최근 글) - ID가 더 큰 글
+    const { data: nextPost } = await supabaseClient.from('posts').select('id').gt('id', currentPostId).order('id', { ascending: true }).limit(1).maybeSingle();
+    
+    // 이전 글 버튼 처리 (더 오래된 글)
+    if (prevPost) {
+        prevBtn.style.display = 'inline-block';
+        prevBtn.disabled = false;
+        prevBtn.style.opacity = '1';
+        prevBtn.style.cursor = 'pointer';
+        prevBtn.style.backgroundColor = ''; // 기본 색상 사용
+        prevBtn.onmouseover = null;
+        prevBtn.onmouseout = null;
+        prevBtn.onclick = () => showView('detail', prevPost.id);
+    } else {
+        prevBtn.style.display = 'none'; // 버튼 완전히 숨김
+        prevBtn.disabled = true;
+        prevBtn.onclick = null;
+    }
+    
+    // 다음 글 버튼 처리 (더 최근 글)
+    if (nextPost) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.disabled = false;
+        nextBtn.style.opacity = '1';
+        nextBtn.style.cursor = 'pointer';
+        nextBtn.style.backgroundColor = ''; // 기본 색상 사용
+        nextBtn.onmouseover = null;
+        nextBtn.onmouseout = null;
+        nextBtn.onclick = () => showView('detail', nextPost.id);
+    } else {
+        nextBtn.style.display = 'none'; // 버튼 완전히 숨김
+        nextBtn.disabled = true;
+        nextBtn.onclick = null;
+    }
 }
 
-/** 작성/수정 뷰 렌더링 (단순하고 안정적인 버전) */
+/** 작성/수정 뷰 렌더링 (CKEditor) */
 async function renderEditorView(postId = null) {
-    const editorContainer = document.getElementById('editor-container');
-    editorContainer.innerHTML = `<input id="trix-editor" type="hidden" name="content"><trix-editor input="trix-editor"></trix-editor>`;
+    if (editor) {
+        editor.destroy();
+        editor = null;
+    }
     
-    const editorForm = document.getElementById('editor-form');
-    editorForm.reset();
+    document.getElementById('editor-form').reset();
     document.getElementById('post-id').value = '';
     uploadedFiles = [];
     renderFileList();
 
-    const trixEditor = editorContainer.querySelector('trix-editor');
-    let initialContent = "";
+    const editorEl = document.getElementById('editor');
 
-    if (postId) {
-        const { data: post } = await supabaseClient.from('posts').select('*').eq('id', postId).single();
-        if (post) {
-            document.getElementById('post-id').value = post.id;
-            document.getElementById('title').value = post.title;
-            document.getElementById('category').value = post.category || '';
-            document.getElementById('is-fixed').checked = post.is_fixed;
-            document.getElementById('is-important').checked = post.is_important;
-            initialContent = post.content || "";
-            uploadedFiles = post.attachments || [];
-            renderFileList();
+    // 이미지 업로드 어댑터 클래스 정의
+    class SupabaseUploadAdapter {
+        constructor(loader) {
+            this.loader = loader;
         }
-    } else {
-        document.getElementById('category').value = '';
+
+        async upload() {
+            const file = await this.loader.file;
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const filePath = `images/${fileName}`;
+
+            try {
+                const { error: uploadError } = await supabaseClient.storage
+                    .from('images')
+                    .upload(filePath, file);
+
+                if (uploadError) {
+                    throw uploadError;
+                }
+
+                const { data } = supabaseClient.storage
+                    .from('images')
+                    .getPublicUrl(filePath);
+
+
+
+                return {
+                    default: data.publicUrl
+                };
+            } catch (error) {
+                console.error('Upload failed:', error);
+                throw error;
+            }
+        }
+
+        abort() {
+            // 업로드 중단 처리 (필요한 경우 구현)
+        }
     }
+
+    // CKEditor 생성
+    DecoupledEditor
+        .create(document.createElement('div'), {
+            extraPlugins: [
+                function(editor) {
+                    editor.plugins.get('FileRepository').createUploadAdapter = (loader) => {
+                        return new SupabaseUploadAdapter(loader);
+                    };
+                }
+            ],
+            toolbar: {
+                items: [
+                    'heading', '|',
+                    'bold', 'italic', 'strikethrough', 'underline', 'link', '|',
+                    'bulletedList', 'numberedList', '|',
+                    'uploadImage', '|',
+                    'blockQuote', '|',
+                    'undo', 'redo'
+                ],
+                shouldNotGroupWhenFull: true
+            },
+            image: {
+                resizeUnit: '%',
+                resizeOptions: [
+                    {
+                        name: 'resizeImage:original',
+                        value: null,
+                        label: '원본 크기'
+                    },
+                    {
+                        name: 'resizeImage:50',
+                        value: '50',
+                        label: '50%'
+                    },
+                    {
+                        name: 'resizeImage:75',
+                        value: '75',
+                        label: '75%'
+                    }
+                ],
+                toolbar: [],
+                resizeHandles: true,
+                insertImageAsBlock: true,
+                styles: ['block', 'inline']
+            },
+            typing: {
+                transformations: {
+                    remove: [
+                        'blockQuoteAfterEnter'
+                    ]
+                }
+            },
+            removePlugins: ['ImageToolbar', 'ImageCaption', 'ImageStyle'],
+            heading: {
+                options: [
+                    { model: 'paragraph', title: '본문', class: 'ck-heading_paragraph' },
+                    { model: 'heading1', view: 'h1', title: '제목 1', class: 'ck-heading_heading1' },
+                    { model: 'heading2', view: 'h2', title: '제목 2', class: 'ck-heading_heading2' },
+                    { model: 'heading3', view: 'h3', title: '제목 3', class: 'ck-heading_heading3' }
+                ]
+            }
+        })
+        .then(newEditor => {
+            editor = newEditor;
+            
+            // 기존 내용을 지우고 새로운 구조 생성
+            editorEl.innerHTML = '';
+            
+            // 툴바를 에디터 위에 추가
+            const toolbarContainer = document.createElement('div');
+            toolbarContainer.classList.add('ck-toolbar-container');
+            editorEl.appendChild(toolbarContainer);
+            toolbarContainer.appendChild(editor.ui.view.toolbar.element);
+            
+            // 에디터 본문을 컨테이너에 추가
+            const editableContainer = document.createElement('div');
+            editableContainer.classList.add('ck-editor__editable-container');
+            editorEl.appendChild(editableContainer);
+            editableContainer.appendChild(editor.ui.view.editable.element);
+
+            // 에디터 초기 내용 설정 - 빈 단락 추가
+            if (!postId) {
+                editor.model.change(writer => {
+                    const root = editor.model.document.getRoot();
+                    const paragraph = writer.createElement('paragraph');
+                    writer.append(paragraph, root);
+                });
+            }
+
+            // 이미지 삽입 시 위아래에 단락 확보
+            editor.model.document.on('change:data', () => {
+                const changes = editor.model.document.differ.getChanges();
+                
+                for (const change of changes) {
+                    if (change.type === 'insert' && change.name === 'image') {
+                        setTimeout(() => {
+                            editor.model.change(writer => {
+                                const imageElement = change.position.nodeAfter;
+                                
+                                if (imageElement && imageElement.name === 'image') {
+                                    // 이미지 전에 단락이 없으면 추가
+                                    const prevElement = imageElement.previousSibling;
+                                    if (!prevElement || prevElement.name !== 'paragraph') {
+                                        const paragraphBefore = writer.createElement('paragraph');
+                                        writer.insert(paragraphBefore, imageElement, 'before');
+                                    }
+                                    
+                                    // 이미지 후에 단락이 없으면 추가
+                                    const nextElement = imageElement.nextSibling;
+                                    if (!nextElement || nextElement.name !== 'paragraph') {
+                                        const paragraphAfter = writer.createElement('paragraph');
+                                        writer.insert(paragraphAfter, imageElement, 'after');
+                                    }
+                                    
+                                    // 커서를 이미지 다음 단락으로 이동
+                                    const paragraphToFocus = imageElement.nextSibling;
+                                    if (paragraphToFocus && paragraphToFocus.name === 'paragraph') {
+                                        writer.setSelection(paragraphToFocus, 'in');
+                                    }
+                                }
+                            });
+                        }, 100);
+                    }
+                }
+            });
+            
+            // 에디터 클릭 시 이미지 선택 해제
+            editor.editing.view.document.on('click', (evt, data) => {
+                setTimeout(() => {
+                    const selection = editor.model.document.selection;
+                    const selectedElement = selection.getSelectedElement();
+                    
+                    // 클릭한 대상이 이미지가 아니고, 현재 이미지가 선택된 상태라면
+                    if (selectedElement && selectedElement.name === 'image') {
+                        const domTarget = data.domTarget;
+                        const isImageClick = domTarget.tagName === 'IMG' || domTarget.closest('figure.image');
+                        
+                        if (!isImageClick) {
+                            editor.model.change(writer => {
+                                // 문서 끝에 커서 위치
+                                const root = editor.model.document.getRoot();
+                                const endPosition = writer.createPositionAt(root, root.maxOffset);
+                                writer.setSelection(endPosition);
+                            });
+                        }
+                    }
+                }, 50);
+            });
+            
+            if (postId) {
+                supabaseClient.from('posts').select('*').eq('id', postId).single()
+                    .then(({ data: post }) => {
+                        if (post) {
+                            document.getElementById('post-id').value = post.id;
+                            document.getElementById('title').value = post.title;
+                            document.getElementById('category').value = post.category || '';
+                            document.getElementById('is-fixed').checked = post.is_fixed;
+                            document.getElementById('is-important').checked = post.is_important;
+                            editor.setData(post.content || '');
+                            uploadedFiles = post.attachments || [];
+                            renderFileList();
+                        }
+                    });
+            } else {
+                document.getElementById('category').value = '';
+            }
+        })
+        .catch(error => {
+            console.error('CKEditor 초기화 실패:', error);
+            alert('에디터 초기화에 실패했습니다.');
+        });
     
     setupFileUpload();
-    trixEditor.style.minHeight = '400px';
-
-    // 에디터가 완전히 로드된 후, 내용 삽입 및 리사이저 설정
-    trixEditor.addEventListener('trix-initialize', () => {
-        trixEditor.editor.loadHTML(initialContent);
-        // 내용이 로드된 후 잠시 기다렸다가 리사이저 설정
-        setTimeout(setupAllImageResizers, 100);
-    });
-
-    // 내용이 변경될 때마다 (예: 이미지 붙여넣기) 리사이저 재설정
-    trixEditor.addEventListener('trix-change', () => {
-        setupAllImageResizers();
-    });
-
-    // 이미지 업로드 시 리사이저 설정
-    trixEditor.addEventListener('trix-attachment-add', event => {
-        if (event.attachment.file && event.attachment.file.type.startsWith('image/')) {
-            event.attachment.setAttributes({ caption: '' });
-            uploadTrixImage(event.attachment).then(() => {
-                // 업로드 완료 후 리사이저 설정
-                setTimeout(setupAllImageResizers, 100);
-            });
-        }
-    });
-}
-
-// 모든 이미지에 리사이즈 핸들러를 설정 (중복 방지 포함)
-function setupAllImageResizers() {
-    const trixEditor = document.querySelector('trix-editor');
-    if (!trixEditor) return;
-    const images = trixEditor.querySelectorAll('img');
-    images.forEach(img => {
-        if (!img.dataset.resizeListenerAttached) {
-            img.dataset.resizeListenerAttached = 'true';
-            setupImageResize(img);
-        }
-    });
-}
-
-// 개별 이미지에 리사이즈 로직 적용
-function setupImageResize(img) {
-    const sizes = ['100%', '80%', '60%', '50%', '30%', '20%'];
-    
-    // 초기 스타일 적용 (가장 중요)
-    if (!img.style.width) {
-        img.style.width = '100%';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-        img.style.display = 'block';
-        img.style.margin = '30px auto';
-    }
-
-    img.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const currentWidth = img.style.width || '100%';
-        let currentIndex = sizes.indexOf(currentWidth);
-        if (currentIndex === -1) currentIndex = 0;
-        
-        const nextIndex = (currentIndex + 1) % sizes.length;
-        const newSize = sizes[nextIndex];
-        
-        img.style.width = newSize;
-        img.style.maxWidth = newSize;
-        showSizeNotification(newSize);
-    });
-    
-    img.addEventListener('dblclick', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        img.style.width = '100%';
-        img.style.maxWidth = '100%';
-        showSizeNotification('100%');
-    });
-}
-
-async function uploadTrixImage(attachment) {
-    try {
-        const file = attachment.file;
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `images/${fileName}`;
-
-        const { error } = await supabaseClient.storage.from('images').upload(filePath, file);
-        if (error) throw error;
-
-        const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
-        attachment.setAttributes({ url: publicUrl, href: null });
-    } catch (error) {
-        console.error('Error uploading image:', error);
-        alert('이미지 업로드에 실패했습니다.');
-        attachment.remove();
-    }
 }
 
 /** 파일 업로드 설정 */
 function setupFileUpload() {
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
+    // 이벤트 리스너 중복 부착 방지
     if (dropZone.dataset.listenersAttached) return;
     dropZone.dataset.listenersAttached = 'true';
-    dropZone.addEventListener('click', (e) => { if (e.target.tagName !== 'LABEL' && e.target.closest('label') === null) fileInput.click(); });
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-blue-50'); });
-    dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-blue-50'); });
-    dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-blue-50'); handleFileUpload(Array.from(e.dataTransfer.files)); });
-    fileInput.addEventListener('change', (e) => { handleFileUpload(Array.from(e.target.files)); e.target.value = ''; });
+    
+    dropZone.addEventListener('click', (e) => { 
+        if (e.target.tagName !== 'LABEL' && e.target.closest('label') === null) fileInput.click(); 
+    });
+    dropZone.addEventListener('dragover', (e) => { 
+        e.preventDefault(); 
+        dropZone.classList.add('border-blue-500', 'bg-blue-50'); 
+    });
+    dropZone.addEventListener('dragleave', (e) => { 
+        e.preventDefault(); 
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50'); 
+    });
+    dropZone.addEventListener('drop', (e) => { 
+        e.preventDefault(); 
+        dropZone.classList.remove('border-blue-500', 'bg-blue-50'); 
+        handleFileUpload(Array.from(e.dataTransfer.files)); 
+    });
+    fileInput.addEventListener('change', (e) => { 
+        handleFileUpload(Array.from(e.target.files)); 
+        e.target.value = ''; 
+    });
 }
 
 /** 파일 업로드 처리 (중복 방지) */
@@ -356,7 +508,7 @@ async function handleFileUpload(files) {
     if (newFiles.length === 0) { isUploading = false; return; }
     try {
         for (const file of newFiles) {
-            const fileUrl = await uploadFile(file);
+            const fileUrl = await uploadAttachment(file);
             if (fileUrl) uploadedFiles.push({ name: file.name, url: fileUrl, size: file.size, type: file.type });
         }
         renderFileList();
@@ -368,8 +520,8 @@ async function handleFileUpload(files) {
     }
 }
 
-/** 파일 업로드 (Supabase 스토리지) */
-async function uploadFile(file) {
+/** 첨부파일 업로드 (Supabase 스토리지) */
+async function uploadAttachment(file) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `attachments/${fileName}`;
@@ -378,6 +530,7 @@ async function uploadFile(file) {
     const { data: { publicUrl } } = supabaseClient.storage.from('images').getPublicUrl(filePath);
     return publicUrl;
 }
+
 
 /** 파일 목록 렌더링 */
 function renderFileList() {
@@ -419,9 +572,8 @@ function handleCancel() {
     if (confirm('작성을 취소하시겠습니까? 저장되지 않은 내용은 사라집니다.')) {
         const editorForm = document.getElementById('editor-form');
         const postId = document.getElementById('post-id').value;
-        const trixEditor = document.querySelector('trix-editor');
-        if (trixEditor && trixEditor.editor) {
-            trixEditor.editor.loadHTML('');
+        if (editor) {
+            editor.setData('');
         }
         editorForm.reset();
         if (postId) {
@@ -440,41 +592,14 @@ async function savePost() {
         alert('제목과 부가 정보(카테고리)는 필수입니다.');
         return;
     }
-    const trixEditor = document.querySelector('trix-editor');
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = trixEditor.editor.element.innerHTML;
-    // 저장 시점에 figure를 순수 img로 변환하고 스타일 유지
-    tempDiv.querySelectorAll('figure').forEach(figure => {
-        const img = figure.querySelector('img');
-        if (img) {
-            const newImg = document.createElement('img');
-            newImg.src = img.src;
-            // 현재 적용된 스타일을 그대로 복사
-            newImg.setAttribute('style', img.getAttribute('style'));
-            figure.parentNode.replaceChild(newImg, figure);
-        }
-    });
-    tempDiv.querySelectorAll('figcaption, [data-trix-button-group], .attachment__caption--edited').forEach(el => el.remove());
-    const content = tempDiv.innerHTML;
+    
+    const content = editor.getData();
     if (content.replace(/<[^>]+>/g, '').trim() === "" && uploadedFiles.length === 0) {
         alert('내용 또는 첨부파일이 있어야 합니다.');
         return;
     }
+    
     await handleSavePost(content);
-}
-
-/** 이미지 URL 정규화 함수 */
-function normalizeImageUrls(content) {
-    if (!content) return '';
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = content;
-    tempDiv.querySelectorAll('img').forEach(img => {
-        if (img.src && !img.src.startsWith('http')) {
-            const baseUrl = window.location.origin;
-            img.src = new URL(img.getAttribute('src'), baseUrl).href;
-        }
-    });
-    return tempDiv.innerHTML;
 }
 
 /** 게시글 저장 (Supabase 연동) */
@@ -498,22 +623,6 @@ async function handleSavePost(content) {
         alert('저장되었습니다.');
         showView('list');
     }
-}
-
-/** 크기 변경 알림 함수 */
-function showSizeNotification(size) {
-    const existingNotification = document.querySelector('.size-notification');
-    if (existingNotification) existingNotification.remove();
-    const notification = document.createElement('div');
-    notification.className = 'size-notification';
-    notification.textContent = `이미지 크기: ${size}`;
-    document.body.appendChild(notification);
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
-        }
-    }, 2000);
 }
 
 /** 게시글 삭제 핸들러 */
