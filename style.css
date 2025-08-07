@@ -1,11 +1,68 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
+/* 커스텀 select 스타일 */
+.custom-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="%236b7280" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center; /* 화살표 위치 조정 */
+    background-size: 1em;
+    padding-right: 2rem; /* 화살표 아이콘 공간 확보 */
+}
+
+
+/* Trix Editor 캡션 텍스트 숨기기 */
+trix-editor figcaption,
+trix-editor .attachment__caption,
+trix-editor .attachment--preview figcaption {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Trix Editor 캡션 입력 필드 숨기기 */
+trix-editor .attachment__caption-input,
+trix-editor .attachment--preview .attachment__caption-input {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
+
+/* 고스트 이미지 방지를 위한 스타일 */
+trix-editor img[src*="undefined"],
+trix-editor img[src*="null"],
+trix-editor img:not([src]) {
+    display: none !important;
+}
+
+/* 이미지 로딩 중 스타일 */
+trix-editor img:not([src]) {
+    display: none !important;
+}
+
 /* 기본 폰트 및 레이아웃 스타일 */
 body, html {
     font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
     letter-spacing: -0.025em;
     color: #334155;
     background-color: #f1f5f9;
+}
+
+/* 탭 스타일 */
+.tab-active {
+    border-bottom: 2px solid #4f46e5;
+    color: #4f46e5;
+    font-weight: 600;
+}
+.tab-inactive {
+    border-bottom: 2px solid transparent;
+    color: #64748b;
 }
 
 /* 사이드바 */
@@ -93,7 +150,7 @@ body, html {
 }
 
 table th {
-    font-size: 0.875rem; /* 14px */
+    font-size: 0.875rem;
     font-weight: 600;
     color: #475569;
     padding: 0.75rem 1rem;
@@ -101,13 +158,13 @@ table th {
     border-bottom: 1px solid #e2e8f0;
 }
 table td {
-    font-size: 0.9rem; /* 14.4px */
-    padding: 0.8rem 1rem; /* 패딩 조정 */
+    font-size: 0.9rem;
+    padding: 0.8rem 1rem;
     border-bottom: 1px solid #e2e8f0;
     vertical-align: middle;
 }
 td .text-sm {
-    font-size: 0.85rem; /* 13.6px */
+    font-size: 0.85rem;
     color: #64748b;
 }
 
@@ -118,20 +175,256 @@ td .text-sm {
 }
 /* 상세 페이지 */
 #detail-content-wrapper {
-    min-height: 20rem; /* 320px */
+    min-height: 20rem;
+}
+.category-tag {
+    color: #2563eb;
+    background-color: #dbeafe;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+.important-tag {
+    color: #dc2626;
+    background-color: #fee2e2;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
 }
 
-/* Toast UI Editor 내부 이미지 리사이즈 */
-.toastui-editor-contents img {
+
+/* Toast UI Editor 관련 스타일 */
+/* 이전의 모든 커스텀 이미지 리사이즈 스타일을 제거하고, 에디터의 기본 동작을 존중합니다. */
+/* Trix Editor 스타일 */
+trix-editor {
+    min-height: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+    background-color: white;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    font-family: inherit;
+    line-height: 1.6;
+}
+
+trix-editor:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Trix 툴바 스타일 */
+trix-toolbar {
+    background-color: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-bottom: none;
+    border-radius: 0.375rem 0.375rem 0 0;
+    padding: 0.5rem;
+}
+
+trix-toolbar .trix-button-group {
+    border-color: #e5e7eb;
+}
+
+trix-toolbar .trix-button:hover {
+    background-color: #e5e7eb;
+}
+
+/* Trix 이미지 스타일 */
+trix-editor img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 10px 0;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+trix-editor img:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 이미지 리사이즈 기능 */
+trix-editor img {
+    position: relative;
     cursor: pointer;
-    transition: box-shadow 0.2s;
+    transition: all 0.3s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    margin: 10px auto;
+    display: block;
 }
 
-.toastui-editor-contents img.resizable-image {
-    resize: both;
-    overflow: auto;
-    border: 2px dashed #4f46e5;
+trix-editor img:hover {
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    transform: scale(1.02);
 }
+
+trix-editor img:active {
+    transform: scale(0.98);
+}
+
+/* 이미지 리사이즈 안내 표시 */
+trix-editor img::after {
+    content: '우클릭: 크기변경 | 더블클릭: 원본크기';
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(79, 70, 229, 0.9);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 10;
+}
+
+trix-editor img:hover::after {
+    opacity: 1;
+}
+
+/* 크기 변경 알림 애니메이션 */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Trix 이미지 컨테이너 스타일 조정 */
+trix-editor .attachment {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+trix-editor .attachment img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+/* 이미지 컨테이너가 이미지 크기에 맞춰 조정되도록 */
+trix-editor .attachment--preview {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+/* 이미지 선택 시 나타나는 컨트롤들이 이미지 크기에 맞춰 조정 */
+trix-editor .attachment--preview .attachment__caption {
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+trix-editor .attachment--preview .attachment__remove {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 20;
+}
+
+/* 이미지 크기 변경 시 컨테이너도 함께 조정 */
+trix-editor .attachment--preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* 이미지 중앙 정렬 및 텍스트 레이아웃 보호 */
+trix-editor img {
+    margin: 20px auto !important;
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+    position: relative !important;
+    cursor: pointer !important;
+}
+
+/* 이미지 크기 변경 시 스타일 강제 적용 */
+trix-editor img[style*="width"] {
+    width: var(--img-width, 100%) !important;
+    max-width: var(--img-max-width, 100%) !important;
+}
+
+/* 큰 이미지(100% 이상)를 위한 스크롤 지원 */
+trix-editor {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+/* 이미지가 에디터 너비를 초과할 때 중앙 정렬 유지 */
+trix-editor img[style*="width: 120%"],
+trix-editor img[style*="width: 150%"] {
+    margin-left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 300px) !important;
+    width: calc(100vw - 300px) !important;
+    position: relative !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+/* 이미지 컨테이너도 중앙 정렬 */
+trix-editor .attachment--preview {
+    text-align: center;
+    margin: 20px auto;
+}
+
+/* 이미지 앞뒤 텍스트와의 간격 조정 */
+trix-editor p {
+    margin: 15px 0;
+}
+
+/* 이미지가 포함된 단락의 간격 조정 */
+trix-editor p:has(img) {
+    margin: 25px 0;
+}
+
+/* 상세페이지 이미지 스타일 */
+#detail-body img {
+    margin: 20px auto !important;
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+    position: relative !important;
+    cursor: pointer !important;
+}
+
+/* 상세페이지에서 큰 이미지(100% 이상) 중앙 정렬 */
+#detail-body img[style*="width: 120%"],
+#detail-body img[style*="width: 150%"] {
+    margin-left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 300px) !important;
+    width: calc(100vw - 300px) !important;
+}
+
 
 /* 커스텀 확인창 스타일 */
 .confirm-modal-overlay {
@@ -153,4 +446,57 @@ td .text-sm {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     width: 90%;
     max-width: 400px;
+}
+
+/* 이미지 스타일링 */
+trix-editor img,
+#detail-body img {
+    max-width: 100% !important;
+    height: auto !important;
+    display: block !important;
+    margin: 30px auto !important;
+    cursor: pointer;
+    position: relative;
+}
+
+/* 이미지 컨테이너 스타일링 */
+.attachment--preview {
+    margin: 15px auto !important;
+}
+
+/* 이미지 리사이징 관련 스타일 - 100%까지만 제한 */
+trix-editor img[style*="width: 80%"],
+trix-editor img[style*="width: 60%"],
+trix-editor img[style*="width: 50%"],
+trix-editor img[style*="width: 30%"],
+trix-editor img[style*="width: 20%"] {
+    margin: 30px auto !important;
+    display: block !important;
+}
+
+#detail-body img[style*="width: 80%"],
+#detail-body img[style*="width: 60%"],
+#detail-body img[style*="width: 50%"],
+#detail-body img[style*="width: 30%"],
+#detail-body img[style*="width: 20%"] {
+    margin: 30px auto !important;
+    display: block !important;
+}
+
+/* 이미지와 텍스트 간격 */
+trix-editor p {
+    margin: 20px 0 !important;
+}
+
+#detail-body p {
+    margin: 20px 0 !important;
+}
+
+/* 이미지 주변 텍스트 간격 */
+trix-editor p:has(img) {
+    margin: 30px 0 !important;
+}
+
+#detail-body p:has(img) {
+    margin: 30px 0 !important;
 }
