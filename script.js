@@ -6,7 +6,7 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 // --- 상태 관리 변수 ---
 let currentView = 'list';
 let currentPage = 1;
-const postsPerPage = 10;
+let postsPerPage = 20; // 기본값을 20으로 변경
 let currentFilter = '전체';
 let currentPostId = null;
 let uploadedFiles = [];
@@ -70,13 +70,13 @@ async function renderListView() {
     }
     const startIndex = (currentPage - 1) * postsPerPage;
     query = query.order('is_fixed', { ascending: false }).order('created_at', { ascending: false }).range(startIndex, startIndex + postsPerPage - 1);
-    const { data: posts, error, count } = await query;
+    const { data: posts, error, count = 0 } = await query;
+    
+    // 에러 발생 시에도 페이지네이션 UI는 표시
     if (error) {
         console.error('Error fetching posts:', error);
         tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-10 text-red-500">데이터 로딩 실패</td></tr>';
-        return;
-    }
-    if (posts.length === 0) {
+    } else if (!posts || posts.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-10">게시글이 없습니다.</td></tr>';
     } else {
         tableBody.innerHTML = posts.map((post, index) => {
@@ -87,8 +87,9 @@ async function renderListView() {
                 const lastFile = post.attachments[attachmentCount - 1];
                 attachmentText = attachmentCount > 1 ? `${lastFile.name} 외 ${attachmentCount - 1}개` : lastFile.name;
             }
+            const rowClass = post.is_important ? 'border-b hover:bg-gray-50 bg-indigo-50' : 'border-b hover:bg-gray-50';
             return `
-                <tr class="border-b hover:bg-gray-50">
+                <tr class="${rowClass}">
                     <td class="text-center py-3 px-4">${post.is_fixed ? '<span class="text-red-500 font-bold">공지</span>' : postNumber}</td>
                     <td class="py-3 px-4 truncate"><a href="#" class="hover:underline" onclick="event.preventDefault(); showView('detail', ${post.id})">${post.title}</a></td>
                     <td class="text-center py-3 px-4">${post.category}</td>
@@ -98,21 +99,99 @@ async function renderListView() {
                 </tr>`;
         }).join('');
     }
-    renderPagination(Math.ceil(count / postsPerPage));
+    
+    // 항상 페이지네이션 UI 표시
+    const totalPages = Math.max(1, Math.ceil(count / postsPerPage));
+    renderPagination(totalPages);
 }
 
 /** 페이지네이션 렌더링 */
 function renderPagination(totalPages) {
     const paginationContainer = document.getElementById('pagination');
     paginationContainer.innerHTML = '';
-    if (totalPages <= 1) return;
-    for (let i = 1; i <= totalPages; i++) {
-        const pageButton = document.createElement('button');
-        pageButton.textContent = i;
-        pageButton.className = `px-3 py-1 rounded ${currentPage === i ? 'bg-blue-500 text-white' : 'bg-gray-200'}`;
-        pageButton.onclick = async () => { currentPage = i; await renderListView(); };
-        paginationContainer.appendChild(pageButton);
-    }
+    
+    // 데이터가 없거나 1페이지일 경우에도 UI는 표시하되 비활성화
+    totalPages = Math.max(1, totalPages);
+    
+    // 현재 범위 정보 표시
+    const startItem = totalPages === 1 ? 0 : (currentPage - 1) * postsPerPage + 1;
+    const endItem = Math.min(currentPage * postsPerPage, totalPages * postsPerPage);
+    const totalItems = totalPages * postsPerPage;
+    
+    const rangeInfo = document.createElement('span');
+    rangeInfo.className = 'text-sm text-gray-600';
+    rangeInfo.textContent = `${startItem} to ${endItem} of ${totalItems}`;
+    paginationContainer.appendChild(rangeInfo);
+    
+    // 구분자
+    const divider = document.createElement('span');
+    divider.className = 'mx-4 text-gray-300';
+    divider.textContent = '|';
+    paginationContainer.appendChild(divider);
+    
+    // 페이지 네비게이션 컨테이너
+    const pageNavContainer = document.createElement('div');
+    pageNavContainer.className = 'flex items-center gap-1';
+
+    // 처음 페이지 버튼
+    const firstPageButton = document.createElement('button');
+    firstPageButton.innerHTML = '<<'; // 이중 왼쪽 화살표
+    firstPageButton.className = `text-sm ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-gray-900 cursor-pointer'} leading-none`;
+    firstPageButton.disabled = currentPage === 1;
+    firstPageButton.onclick = async () => {
+        if (currentPage > 1) {
+            currentPage = 1;
+            await renderListView();
+        }
+    };
+    pageNavContainer.appendChild(firstPageButton);
+
+    // 왼쪽 화살표
+    const leftArrow = document.createElement('button');
+    leftArrow.innerHTML = '<'; // 왼쪽 화살표
+    leftArrow.className = `text-sm ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-gray-900 cursor-pointer'} leading-none`;
+    leftArrow.disabled = currentPage === 1;
+    leftArrow.onclick = async () => {
+        if (currentPage > 1) {
+            currentPage--;
+            await renderListView();
+        }
+    };
+    pageNavContainer.appendChild(leftArrow);
+
+    // 페이지 정보
+    const pageInfo = document.createElement('span');
+    pageInfo.className = 'text-sm mx-1';
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    pageNavContainer.appendChild(pageInfo);
+
+    // 오른쪽 화살표
+    const rightArrow = document.createElement('button');
+    rightArrow.innerHTML = '>'; // 오른쪽 화살표
+    rightArrow.className = `text-sm ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-gray-900 cursor-pointer'} leading-none`;
+    rightArrow.disabled = currentPage === totalPages;
+    rightArrow.onclick = async () => {
+        if (currentPage < totalPages) {
+            currentPage++;
+            await renderListView();
+        }
+    };
+    pageNavContainer.appendChild(rightArrow);
+
+    // 마지막 페이지 버튼
+    const lastPageButton = document.createElement('button');
+    lastPageButton.innerHTML = '>>'; // 이중 오른쪽 화살표
+    lastPageButton.className = `text-sm ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-gray-900 cursor-pointer'} leading-none`;
+    lastPageButton.disabled = currentPage === totalPages;
+    lastPageButton.onclick = async () => {
+        if (currentPage < totalPages) {
+            currentPage = totalPages;
+            await renderListView();
+        }
+    };
+    pageNavContainer.appendChild(lastPageButton);
+
+    paginationContainer.appendChild(pageNavContainer);
 }
 
 /** 퀵 필터 버튼 렌더링 */
@@ -132,6 +211,14 @@ function renderQuickFilterButtons() {
         };
         container.appendChild(button);
     });
+}
+
+/** 게시글 수 변경 함수 */
+function changePostsPerPage() {
+    const select = document.getElementById('posts-per-page');
+    postsPerPage = parseInt(select.value);
+    currentPage = 1; // 페이지를 1로 리셋
+    renderListView();
 }
 
 /** 상세 뷰 렌더링 */
